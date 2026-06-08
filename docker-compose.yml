@@ -1,0 +1,12 @@
+services:
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - DB_PATH=/app/data/gazebos.db
+      - DEFAULTS_PATH=/app/data/defaults.json
+      - PROXY_URL=http://IRWKy2:UXegRv@185.156.75.241:10194
+    restart: unless-stopped

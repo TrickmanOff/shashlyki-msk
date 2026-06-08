@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Беседки Москвы</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, sans-serif; background: #f4f6f8; color: #1a1a2e; }
+
+  .header {
+    background: #2e7d32;
+    color: #fff;
+    padding: 16px 24px;
+    font-size: 1.3rem;
+    font-weight: 700;
+    letter-spacing: .5px;
+  }
+
+  .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+
+  .card {
+    background: #fff;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.08);
+  }
+
+  .form-row { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  label { font-size: .85rem; font-weight: 600; color: #555; }
+
+  select, input[type=date], input[type=number] {
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: .95rem;
+    outline: none;
+    transition: border-color .15s;
+  }
+  select:focus, input:focus { border-color: #2e7d32; }
+
+  /* Park picker */
+  .park-picker { display: flex; gap: 12px; align-items: flex-start; }
+  .park-col { display: flex; flex-direction: column; gap: 6px; width: 260px; }
+  .park-col label { font-size: .85rem; font-weight: 600; color: #555; }
+  .park-list {
+    border: 1px solid #ccc; border-radius: 6px;
+    height: 160px; overflow-y: auto;
+    background: #fff;
+  }
+  .park-list-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 6px 8px; font-size: .88rem; border-bottom: 1px solid #f0f0f0;
+  }
+  .park-list-item:last-child { border-bottom: none; }
+  .park-list-item:hover { background: #f5faf5; }
+  .park-list-item span { flex: 1; }
+  .icon-btn {
+    border: none; background: none; cursor: pointer;
+    font-size: 1rem; line-height: 1;
+    width: 22px; height: 22px;
+    border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .icon-btn:hover { background: #e8f5e9; }
+  .icon-btn.remove:hover { background: #fce8e8; }
+  .park-empty { color: #aaa; font-size: .82rem; padding: 10px; text-align: center; }
+
+  .btn {
+    padding: 9px 22px;
+    border: none;
+    border-radius: 6px;
+    font-size: .95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity .15s;
+  }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-green { background: #2e7d32; color: #fff; }
+  .btn-gray  { background: #e0e0e0; color: #333; }
+
+  /* Progress */
+  .progress-wrap { margin-top: 14px; display: none; }
+  .progress-bar-bg {
+    height: 10px; background: #e0e0e0; border-radius: 5px; overflow: hidden;
+  }
+  .progress-bar-fill {
+    height: 100%; background: #2e7d32; border-radius: 5px;
+    transition: width .4s ease;
+    width: 0%;
+  }
+  .progress-text { font-size: .85rem; color: #555; margin-top: 6px; }
+  .log-box {
+    background: #111; color: #a8ff78;
+    font-family: monospace; font-size: .78rem;
+    padding: 10px 12px; border-radius: 6px; margin-top: 10px;
+    max-height: 160px; overflow-y: auto;
+    white-space: pre-wrap;
+  }
+
+  /* Results */
+  .results-title {
+    font-size: 1rem; font-weight: 700; margin-bottom: 14px; color: #2e7d32;
+  }
+
+  .filter-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; align-items: flex-end; }
+
+  /* Card grid */
+  .gazebo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+  }
+  .gazebo-card {
+    border-radius: 10px; overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0,0,0,.1);
+    cursor: pointer;
+    transition: box-shadow .15s, transform .15s;
+    background: #fff;
+    display: flex; flex-direction: column;
+  }
+  .gazebo-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,.15); transform: translateY(-2px); }
+  .gazebo-card img {
+    width: 100%; aspect-ratio: 3/2; object-fit: cover;
+    background: #e8f5e9;
+  }
+  .gazebo-card .no-photo {
+    width: 100%; aspect-ratio: 3/2;
+    background: linear-gradient(135deg, #c8e6c9, #a5d6a7);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2.5rem;
+  }
+  .gazebo-card-body { padding: 12px; flex: 1; display: flex; flex-direction: column; gap: 4px; }
+  .gazebo-card-title { font-weight: 700; font-size: .92rem; }
+  .gazebo-card-park { font-size: .78rem; color: #777; }
+  .gazebo-card-slots { margin-top: 8px; display: flex; flex-direction: column; gap: 3px; }
+  .slot-day { font-size: .78rem; color: #555; }
+  .slot-day strong { color: #1a1a2e; font-weight: 600; }
+  .slot-more { font-size: .75rem; color: #aaa; margin-top: 2px; }
+  .gazebo-card-link {
+    display: inline-block;
+    font-size: .85rem; font-weight: 700; color: #2e7d32; text-decoration: none;
+  }
+  .gazebo-card-link:hover { text-decoration: underline; }
+  .card-mini-map {
+    width: 100%; height: 120px;
+    background: #e8f5e9;
+    z-index: 0;
+    flex-shrink: 0;
+  }
+
+  /* Modal */
+  .modal-backdrop {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,.45); z-index: 100;
+    align-items: center; justify-content: center;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal {
+    background: #fff; border-radius: 12px;
+    max-width: 520px; width: 90%; max-height: 80vh;
+    display: flex; flex-direction: column;
+    overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,.2);
+  }
+  .modal-header {
+    padding: 16px 18px; border-bottom: 1px solid #eee;
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+  }
+  .modal-header h2 { font-size: 1rem; }
+  .modal-header .park-tag {
+    font-size: .75rem; color: #fff; background: #2e7d32;
+    border-radius: 12px; padding: 2px 9px; white-space: nowrap;
+  }
+  .modal-close {
+    border: none; background: none; font-size: 1.3rem;
+    cursor: pointer; color: #888; line-height: 1; flex-shrink: 0;
+  }
+  .modal-body { padding: 14px 18px; overflow-y: auto; }
+
+  table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+  th { background: #2e7d32; color: #fff; padding: 7px 10px; text-align: left; }
+  td { padding: 7px 10px; border-bottom: 1px solid #f0f0f0; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #f9fff9; }
+
+  .free { color: #2e7d32; font-weight: 700; }
+  .price-zero { color: #888; font-size: .82rem; }
+
+  .empty-msg { color: #888; font-size: .9rem; padding: 20px 0; text-align: center; }
+
+  .no-avail-block {
+    margin-top: 20px; padding: 14px 16px;
+    background: #fff8f0; border: 1px solid #ffe0b2; border-radius: 8px;
+  }
+  .no-avail-block h4 { font-size: .85rem; color: #e65100; margin-bottom: 8px; }
+  .no-avail-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .no-avail-tag {
+    font-size: .78rem; background: #ffe0b2; color: #bf360c;
+    border-radius: 12px; padding: 3px 10px;
+  }
+
+  .unavail-details {
+    margin-top: 20px;
+    border: 1px solid #eee;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .unavail-summary {
+    padding: 12px 16px;
+    font-size: .88rem; font-weight: 600; color: #555;
+    cursor: pointer; user-select: none;
+    list-style: none;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .unavail-summary::-webkit-details-marker { display: none; }
+  .unavail-summary::before { content: '▶'; font-size: .7rem; transition: transform .2s; }
+  details[open] .unavail-summary::before { transform: rotate(90deg); }
+  .unavail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 10px;
+    padding: 12px 16px 16px;
+    background: #fafafa;
+  }
+  .unavail-card {
+    background: #fff; border-radius: 8px;
+    overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.08);
+    display: flex; flex-direction: column;
+    opacity: .75;
+  }
+  .unavail-card img { width: 100%; aspect-ratio: 3/2; object-fit: cover; }
+  .unavail-card .no-photo {
+    width: 100%; aspect-ratio: 3/2;
+    background: #eee;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.8rem; color: #bbb;
+  }
+  .unavail-card-body { padding: 8px 10px; }
+  .unavail-card-title { font-size: .82rem; font-weight: 700; }
+  .unavail-card-park  { font-size: .73rem; color: #999; margin-top: 2px; }
+
+  .marker-dot, .marker-dot-hl {
+    width: 14px; height: 14px; border-radius: 50%;
+    border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4);
+  }
+  .marker-dot    { background: #2e7d32; }
+  .marker-dot-hl { background: #e53935; }
+
+  #modal-photo img {
+    width: 100%; max-height: 240px; object-fit: cover;
+    display: block;
+  }
+
+  .modal-close-top { display: none; }
+
+  /* ── Mobile ─────────────────────────────────────────────────────────────── */
+  @media (max-width: 640px) {
+    .modal-close-top {
+      display: block; width: 100%;
+      padding: 12px; border: none;
+      background: #f5f5f5; border-bottom: 1px solid #eee;
+      color: #333; font-size: .95rem; font-weight: 600;
+      cursor: pointer; text-align: center;
+    }
+
+    .header { font-size: 1.05rem; padding: 12px 16px; }
+    .container { padding: 12px; }
+    .card { padding: 14px; }
+
+    /* Park pickers stack vertically */
+    .park-picker { flex-direction: column; width: 100%; }
+    .park-col { width: 100%; }
+    .park-list { height: 110px; }
+
+    /* Form rows wrap tightly */
+    .form-row { gap: 10px; }
+    .filter-row { gap: 8px; }
+
+    /* Inputs full-width on mobile */
+    select, input[type=date], input[type=number], input[type=time] {
+      font-size: 1rem; /* prevent iOS zoom on focus */
+    }
+
+    /* Main map shorter */
+    #map { height: 260px; }
+
+    /* Card grid: 2 columns minimum */
+    .gazebo-grid {
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 10px;
+    }
+    .gazebo-card:hover { transform: none; }
+
+    /* Unavail grid */
+    .unavail-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+
+    /* Modal as bottom sheet */
+    .modal-backdrop.open { align-items: flex-end; }
+    .modal {
+      width: 100%;
+      max-width: 100%;
+      max-height: 92vh;
+      border-radius: 16px 16px 0 0;
+    }
+    #modal-photo img { max-height: 180px; }
+    #modal-map { height: 160px; }
+
+    /* Table scrollable */
+    .modal-body { padding: 12px 14px; }
+    .modal-body > div:first-child { overflow-x: auto; }
+    table { font-size: .82rem; }
+    th, td { padding: 6px 8px; }
+
+    /* Buttons full-width in admin */
+    .btn { padding: 10px 16px; }
+  }
+
+  #map {
+    height: 420px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    z-index: 0;
+  }
+  .leaflet-popup-content button {
+    margin-top: 6px;
+    padding: 4px 10px;
+    background: #2e7d32; color: #fff;
+    border: none; border-radius: 5px;
+    font-size: .82rem; cursor: pointer;
+    width: 100%;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">🏕 Беседки Москвы — поиск свободных слотов{% if is_admin %} <span style="font-size:.8rem;opacity:.7;font-weight:400">/ admin</span>{% endif %}</div>
+
+<div class="container">
+
+{% if is_admin %}
+  <!-- ── Admin: scrape controls ── -->
+  <div class="card">
+    <div class="form-row">
+
+      <div class="park-picker">
+        <div class="park-col">
+          <label>Все парки</label>
+          <div class="park-list" id="parks-available"></div>
+        </div>
+        <div class="park-col">
+          <label>Выбранные <span id="selected-count" style="color:#aaa;font-weight:400">(все)</span></label>
+          <div class="park-list" id="parks-selected"></div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:12px;align-items:flex-start">
+        <div class="form-group">
+          <label for="date-from">С</label>
+          <input type="date" id="date-from">
+        </div>
+        <div class="form-group">
+          <label for="date-to">По</label>
+          <input type="date" id="date-to">
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:8px;justify-content:flex-end">
+        <button class="btn btn-green" id="btn-scrape">Парсить</button>
+        <button class="btn btn-gray" id="btn-results">Показать результаты</button>
+      </div>
+
+    </div>
+
+    <hr style="border:none;border-top:1px solid #eee;margin:16px 0">
+
+    <div style="font-size:.82rem;font-weight:700;color:#555;margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px">Автопарсинг</div>
+    <div class="form-row" style="align-items:flex-start">
+
+      <div class="park-picker">
+        <div class="park-col">
+          <label>Все парки</label>
+          <div class="park-list" id="auto-parks-available"></div>
+        </div>
+        <div class="park-col">
+          <label>Выбранные <span id="auto-selected-count" style="color:#aaa;font-weight:400">(все)</span></label>
+          <div class="park-list" id="auto-parks-selected"></div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="form-group">
+          <label for="auto-interval">Интервал, мин</label>
+          <input type="number" id="auto-interval" min="1" value="10" style="width:90px">
+        </div>
+        <div class="form-group">
+          <label for="auto-date-from">С</label>
+          <input type="date" id="auto-date-from">
+        </div>
+        <div class="form-group">
+          <label for="auto-date-to">По</label>
+          <input type="date" id="auto-date-to">
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:10px;justify-content:flex-start;padding-top:2px">
+        <label style="display:flex;align-items:center;gap:8px;font-size:.92rem;font-weight:600;cursor:pointer">
+          <input type="checkbox" id="auto-enabled"> Включён
+        </label>
+        <button class="btn btn-green" id="btn-save-auto">Сохранить</button>
+        <span id="auto-saved" style="display:none;font-size:.8rem;color:#2e7d32">✓ Сохранено</span>
+        <div id="auto-next-run" style="font-size:.78rem;color:#888;line-height:1.4"></div>
+      </div>
+
+    </div>
+
+    <div class="progress-wrap" id="progress-wrap">
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="progress-bar"></div>
+      </div>
+      <div class="progress-text" id="progress-text">Подготовка...</div>
+      <div class="log-box" id="log-box"></div>
+    </div>
+  </div>
+{% endif %}
+
+  <!-- ── Results ── -->
+{% if not is_admin %}
+  <div style="font-size:.82rem;color:#888;margin-bottom:4px;padding:0 4px" id="last-updated-line"></div>
+{% endif %}
+
+  <div class="card" id="results-card"{% if not is_admin %} style="display:none"{% endif %}>
+    <div class="results-title" id="results-title">Результаты</div>
+    <div class="filter-row" style="align-items:flex-start">
+
+      <div class="park-picker">
+        <div class="park-col">
+          <label>Все парки</label>
+          <div class="park-list" id="filter-parks-available"></div>
+        </div>
+        <div class="park-col">
+          <label>Выбранные <span id="filter-selected-count" style="color:#aaa;font-weight:400">(все)</span></label>
+          <div class="park-list" id="filter-parks-selected"></div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="form-group">
+          <label>Цена до, ₽</label>
+          <input type="number" id="filter-price-max" min="0" step="100" placeholder="любая" style="width:110px">
+        </div>
+        <div class="form-group">
+          <label>Дата с</label>
+          <input type="date" id="filter-date-from">
+        </div>
+        <div class="form-group">
+          <label>Дата по</label>
+          <input type="date" id="filter-date-to">
+        </div>
+        <div class="form-group">
+          <label>Время с</label>
+          <input type="time" id="filter-time-from" value="00:00" style="width:110px">
+        </div>
+        <div class="form-group">
+          <label>Время по</label>
+          <input type="time" id="filter-time-to" value="23:59" style="width:110px">
+        </div>
+      </div>
+
+{% if is_admin %}
+      <div style="margin-top:8px">
+        <button class="btn btn-gray" id="btn-save-defaults" style="font-size:.82rem;padding:6px 14px">
+          Сохранить фильтры как настройки по умолчанию
+        </button>
+        <span id="defaults-saved" style="display:none;font-size:.8rem;color:#2e7d32;margin-left:10px">✓ Сохранено</span>
+      </div>
+{% endif %}
+    </div>
+    <div id="map"></div>
+    <div class="gazebo-grid" id="results-list"></div>
+    <div class="no-avail-block" id="no-avail-block" style="display:none">
+      <h4>Нет свободных беседок</h4>
+      <div class="no-avail-tags" id="no-avail-tags"></div>
+    </div>
+
+    <details class="unavail-details" id="unavail-details" style="display:none">
+      <summary class="unavail-summary">
+        <span id="unavail-summary-text">Занятые беседки</span>
+      </summary>
+      <div class="unavail-grid" id="unavail-grid"></div>
+    </details>
+  </div>
+
+</div>
+
+<!-- ── Modal ── -->
+<!-- ── Lightbox ── -->
+<div id="lightbox" onclick="$('lightbox').style.display='none'"
+  style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:200;
+         align-items:center;justify-content:center;cursor:zoom-out;padding:16px">
+  <img id="lightbox-img" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:4px">
+</div>
+
+<div class="modal-backdrop" id="modal-backdrop" onclick="closeModal(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <h2 id="modal-title"></h2>
+        <div style="margin-top:4px;font-size:.8rem;color:#888" id="modal-address"></div>
+      </div>
+      <span id="modal-mangal" style="font-size:.85rem"></span>
+      <span class="park-tag" id="modal-park"></span>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <button class="modal-close-top" onclick="closeModal()">✕ Закрыть</button>
+    <div id="modal-photo"></div>
+    <div id="modal-map" style="height:200px;display:none"></div>
+    <div class="modal-body">
+      <div id="modal-link-wrap" style="margin-bottom:12px"></div>
+      <table>
+        <thead><tr><th>Дата</th><th>Время</th><th>Мест</th><th>Цена</th></tr></thead>
+        <tbody id="modal-slots"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+
+// ── Map ──────────────────────────────────────────────────────────────────────
+
+let _map = null;
+let _markersLayer = null;
+let _markers = [];
+let _cardMaps = [];
+
+const _iconNormal = L.divIcon({className:'', html:'<div class="marker-dot"></div>',   iconSize:[14,14], iconAnchor:[7,7]});
+const _iconRed    = L.divIcon({className:'', html:'<div class="marker-dot-hl"></div>', iconSize:[14,14], iconAnchor:[7,7]});
+
+let _modalMap = null;
+let _modalMarker = null;
+
+function initModalMap() {
+  if (_modalMap) return;
+  _modalMap = L.map('modal-map').setView([55.75, 37.62], 14);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+  }).addTo(_modalMap);
+}
+
+function updateModalMap(lat, lon) {
+  const el = $('modal-map');
+  if (!lat || !lon) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  initModalMap();
+  if (_modalMarker) _modalMarker.remove();
+  _modalMarker = L.circleMarker([lat, lon], {
+    radius: 8, color: '#fff', fillColor: '#e53935', fillOpacity: 1, weight: 2
+  }).addTo(_modalMap);
+  _modalMap.setView([lat, lon], 15);
+  setTimeout(() => _modalMap.invalidateSize(), 0);
+}
+
+function getMap() {
+  if (!_map) {
+    _map = L.map('map').setView([55.75, 37.62], 10);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(_map);
+    _markersLayer = L.layerGroup().addTo(_map);
+  }
+  return _map;
+}
+
+function updateMap(gazebos) {
+  const map = getMap();
+  _markersLayer.clearLayers();
+  _markers = [];
+
+  gazebos.forEach((g, idx) => {
+    if (!g.lat || !g.lon) { _markers.push(null); return; }
+    const m = L.marker([g.lat, g.lon], {icon: _iconNormal}).addTo(_markersLayer).on('click', () => openModal(idx));
+    _markers.push(m);
+  });
+
+  const placed = _markers.filter(Boolean);
+  if (placed.length === 1) {
+    map.setView([placed[0].getLatLng().lat, placed[0].getLatLng().lng], 14);
+  } else if (placed.length > 1) {
+    map.fitBounds(L.featureGroup(placed).getBounds().pad(0.1));
+  }
+
+  setTimeout(() => map.invalidateSize(), 0);
+}
+
+const IS_ADMIN = {{ 'true' if is_admin else 'false' }};
+
+// ── Init ────────────────────────────────────────────────────────────────────
+
+const today = new Date().toISOString().slice(0, 10);
+const twoWeeks = new Date(Date.now() + 13 * 86400e3).toISOString().slice(0, 10);
+
+// ── Persist ──────────────────────────────────────────────────────────────────
+
+function save() {
+  if (IS_ADMIN) {
+    localStorage.setItem('dateFrom',      $('date-from').value);
+    localStorage.setItem('dateTo',        $('date-to').value);
+    localStorage.setItem('selectedParks', JSON.stringify([...selectedParks]));
+  }
+  localStorage.setItem('filterFrom',    $('filter-date-from').value);
+  localStorage.setItem('filterTo',      $('filter-date-to').value);
+  localStorage.setItem('filterTimeFrom',$('filter-time-from').value);
+  localStorage.setItem('filterTimeTo',  $('filter-time-to').value);
+  localStorage.setItem('filterPriceMax',$('filter-price-max').value);
+  localStorage.setItem('filterParks',   JSON.stringify([...filterParks]));
+}
+
+function loadStored(id, fallback) {
+  return localStorage.getItem(id) ?? fallback;
+}
+
+$('date-from') && ($('date-from').value = loadStored('dateFrom', today));
+$('date-to')   && ($('date-to').value   = loadStored('dateTo',   twoWeeks));
+$('filter-date-from').value  = loadStored('filterFrom',    today);
+$('filter-date-to').value    = loadStored('filterTo',      twoWeeks);
+$('filter-time-from').value  = loadStored('filterTimeFrom','00:00');
+$('filter-time-to').value    = loadStored('filterTimeTo',  '23:59');
+$('filter-price-max').value  = loadStored('filterPriceMax','');
+
+['filter-date-from','filter-date-to','filter-time-from','filter-time-to','filter-price-max'].forEach(id =>
+  $(id).addEventListener('change', save)
+);
+if (IS_ADMIN) {
+  ['date-from','date-to'].forEach(id => $(id).addEventListener('change', save));
+}
+
+// ── Park picker ─────────────────────────────────────────────────────────────
+
+let allParks = [];
+let selectedParks = new Set(JSON.parse(loadStored('selectedParks', '[]')));
+let filterParks   = new Set(JSON.parse(loadStored('filterParks',   '[]')));
+let autoParks     = new Set();
+
+const esc = s => s.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+
+function renderPicker(availEl, selEl, countEl, selSet, addAttr, remAttr) {
+  const available = allParks.filter(p => !selSet.has(p));
+
+  availEl.innerHTML = available.length
+    ? available.map(p => `
+        <div class="park-list-item">
+          <span>${esc(p)}</span>
+          <button class="icon-btn" data-${addAttr}="${esc(p)}" title="Добавить">＋</button>
+        </div>`).join('')
+    : '<div class="park-empty">нет парков</div>';
+
+  selEl.innerHTML = selSet.size
+    ? [...selSet].map(p => `
+        <div class="park-list-item">
+          <span>${esc(p)}</span>
+          <button class="icon-btn remove" data-${remAttr}="${esc(p)}" title="Убрать">−</button>
+        </div>`).join('')
+    : '<div class="park-empty">все парки</div>';
+
+  countEl.textContent = selSet.size ? `(${selSet.size})` : '(все)';
+}
+
+function renderScrapeParks() {
+  renderPicker(
+    $('parks-available'), $('parks-selected'), $('selected-count'),
+    selectedParks, 'add', 'remove'
+  );
+}
+
+function renderFilterParks() {
+  renderPicker(
+    $('filter-parks-available'), $('filter-parks-selected'), $('filter-selected-count'),
+    filterParks, 'fadd', 'fremove'
+  );
+}
+
+function renderAutoParks() {
+  renderPicker(
+    $('auto-parks-available'), $('auto-parks-selected'), $('auto-selected-count'),
+    autoParks, 'aadd', 'aremove'
+  );
+}
+
+document.addEventListener('click', e => {
+  if (IS_ADMIN) {
+    const add = e.target.closest('[data-add]');
+    if (add) { selectedParks.add(add.dataset.add); renderScrapeParks(); save(); return; }
+    const rem = e.target.closest('[data-remove]');
+    if (rem) { selectedParks.delete(rem.dataset.remove); renderScrapeParks(); save(); return; }
+  }
+
+  const fadd = e.target.closest('[data-fadd]');
+  if (fadd) { filterParks.add(fadd.dataset.fadd); renderFilterParks(); save(); loadResults(); return; }
+  const frem = e.target.closest('[data-fremove]');
+  if (frem) { filterParks.delete(frem.dataset.fremove); renderFilterParks(); save(); loadResults(); return; }
+
+  if (IS_ADMIN) {
+    const aadd = e.target.closest('[data-aadd]');
+    if (aadd) { autoParks.add(aadd.dataset.aadd); renderAutoParks(); return; }
+    const arem = e.target.closest('[data-aremove]');
+    if (arem) { autoParks.delete(arem.dataset.aremove); renderAutoParks(); return; }
+  }
+});
+
+function loadParks() {
+  fetch('/api/parks')
+    .then(r => r.json())
+    .then(parks => {
+      allParks = parks;
+      if (IS_ADMIN) {
+        selectedParks = new Set([...selectedParks].filter(p => parks.includes(p)));
+        renderScrapeParks();
+      }
+      filterParks = new Set([...filterParks].filter(p => parks.includes(p)));
+      renderFilterParks();
+      if (IS_ADMIN) renderAutoParks();
+    });
+}
+
+loadParks();
+loadAvailableDates();
+
+function loadAvailableDates() {
+  fetch('/api/available-dates')
+    .then(r => r.json())
+    .then(d => {
+      if (!d.min || !d.max) return;
+      ['filter-date-from', 'filter-date-to'].forEach(id => {
+        $(id).min = d.min;
+        $(id).max = d.max;
+      });
+    });
+}
+
+// ── Scrape (admin only) ──────────────────────────────────────────────────────
+
+if (IS_ADMIN) {
+
+let pollInterval = null;
+
+$('btn-scrape').addEventListener('click', () => {
+  const parks = [...selectedParks];
+  const date_from = $('date-from').value;
+  const date_to = $('date-to').value;
+
+  fetch('/api/scrape', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({parks, date_from, date_to}),
+  })
+  .then(r => {
+    if (r.status === 409) return r.json().then(d => { alert(d.error); });
+    if (!r.ok) throw new Error('Ошибка запуска');
+    startPolling();
+  })
+  .catch(e => alert(e.message));
+});
+
+function startPolling() {
+  $('progress-wrap').style.display = 'block';
+  $('btn-scrape').disabled = true;
+  if (pollInterval) clearInterval(pollInterval);
+  pollInterval = setInterval(pollStatus, 1500);
+}
+
+function pollStatus() {
+  fetch('/api/status')
+    .then(r => r.json())
+    .then(s => {
+      const pct = s.percent || 0;
+      $('progress-bar').style.width = pct + '%';
+      $('progress-text').textContent =
+        s.done
+          ? `Готово — ${s.processed} беседок, ${s.errors} ошибок`
+          : `${s.processed} / ${s.total} беседок (${pct}%)`;
+      $('log-box').textContent = (s.log || []).join('\n');
+      $('log-box').scrollTop = 9999;
+
+      if (!s.running && (s.done || (!s.running && s.total === 0 && !s.done))) {
+        if (s.done) {
+          clearInterval(pollInterval);
+          $('btn-scrape').disabled = false;
+          loadParks();
+          loadAvailableDates();
+        }
+      }
+    });
+}
+
+// ── Results ─────────────────────────────────────────────────────────────────
+
+  $('btn-save-defaults').addEventListener('click', () => {
+    fetch('/api/defaults', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        filterParks:    [...filterParks],
+        filterDateFrom: $('filter-date-from').value,
+        filterDateTo:   $('filter-date-to').value,
+        filterTimeFrom: $('filter-time-from').value,
+        filterTimeTo:   $('filter-time-to').value,
+        filterPriceMax: $('filter-price-max').value,
+      }),
+    }).then(() => {
+      const msg = $('defaults-saved');
+      msg.style.display = 'inline';
+      setTimeout(() => msg.style.display = 'none', 2500);
+    });
+  });
+
+// ── Auto-scrape settings ────────────────────────────────────────────────────
+
+function loadAutoScrapeSettings() {
+  fetch('/api/auto-scrape')
+    .then(r => r.json())
+    .then(d => {
+      $('auto-enabled').checked    = !!d.enabled;
+      $('auto-interval').value     = d.intervalMinutes ?? 10;
+      $('auto-date-from').value    = d.dateFrom || today;
+      $('auto-date-to').value      = d.dateTo   || twoWeeks;
+      autoParks = new Set((d.parks || []).filter(p => allParks.includes(p)));
+      renderAutoParks();
+      updateNextRunLabel(d);
+    });
+}
+
+function updateNextRunLabel(d) {
+  const el = $('auto-next-run');
+  if (!d.enabled) { el.textContent = 'Отключён'; return; }
+  fetch('/api/last-updated').then(r => r.json()).then(ts => {
+    if (!ts.ts) { el.textContent = 'Запуск при следующей проверке'; return; }
+    const intervalMs = (d.intervalMinutes ?? 10) * 60000;
+    const diff = (ts.ts * 1000 + intervalMs) - Date.now();
+    if (diff <= 0) { el.textContent = 'Запуск при следующей проверке'; return; }
+    const m = Math.floor(diff / 60000);
+    el.textContent = `Следующий запуск через ${m} мин`;
+  });
+}
+
+$('btn-save-auto').addEventListener('click', () => {
+  const settings = {
+    enabled:         $('auto-enabled').checked,
+    intervalMinutes: parseInt($('auto-interval').value) || 10,
+    dateFrom:        $('auto-date-from').value || today,
+    dateTo:          $('auto-date-to').value   || twoWeeks,
+    parks:           [...autoParks],
+  };
+  fetch('/api/auto-scrape', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(settings),
+  }).then(() => {
+    const msg = $('auto-saved');
+    msg.style.display = 'inline';
+    setTimeout(() => msg.style.display = 'none', 2500);
+    updateNextRunLabel(settings);
+  });
+});
+
+loadAutoScrapeSettings();
+
+} // end IS_ADMIN
+
+// ── Results ──────────────────────────────────────────────────────────────────
+
+if (IS_ADMIN) $('btn-results').addEventListener('click', loadResults);
+
+['filter-date-from', 'filter-date-to', 'filter-time-from', 'filter-time-to', 'filter-price-max'].forEach(id => {
+  $(id).addEventListener('change', loadResults);
+});
+
+function loadResults() {
+  const dateFrom = $('filter-date-from').value || today;
+  const dateTo = $('filter-date-to').value || twoWeeks;
+
+  let qs = `date_from=${dateFrom}&date_to=${dateTo}`;
+  filterParks.forEach(p => qs += `&park=${encodeURIComponent(p)}`);
+
+  Promise.all([
+    fetch(`/api/results?${qs}`).then(r => r.json()),
+    fetch(`/api/unavailable?${qs}`).then(r => r.json()),
+  ]).then(([data, unavail]) => {
+    $('results-card').style.display = 'block';
+    renderResults(data);
+    renderUnavailable(unavail);
+  });
+}
+
+function renderUnavailable(items) {
+  const block = $('unavail-details');
+  if (!items.length) { block.style.display = 'none'; return; }
+
+  block.style.display = 'block';
+  $('unavail-summary-text').textContent = `Занятые беседки (${items.length})`;
+  $('unavail-grid').innerHTML = items.map(g => {
+    const photo = g.image_url
+      ? `<img src="${g.image_url}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'no-photo',textContent:'🏕'}))">`
+      : `<div class="no-photo">🏕</div>`;
+    const link = g.bilet_id
+      ? `<a class="gazebo-card-link" style="font-size:.75rem" href="https://bilet.mos.ru/event/${g.bilet_id}" target="_blank">bilet.mos.ru</a>`
+      : '';
+    return `
+      <div class="unavail-card">
+        ${photo}
+        <div class="unavail-card-body">
+          <div class="unavail-card-title">${g.title} ${g.has_mangal ? '🔥' : ''}</div>
+          <div class="unavail-card-park">${g.park}</div>
+          ${link}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function timeLabel(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'});
+}
+
+function dateLabel(str) {
+  if (!str) return '';
+  const [y, m, d] = str.split('-');
+  const dt = new Date(parseInt(y), parseInt(m)-1, parseInt(d));
+  return dt.toLocaleDateString('ru-RU', {day: 'numeric', month: 'short', weekday: 'short'});
+}
+
+let _gazebos = [];
+
+function timeOf(iso) {
+  return iso ? iso.slice(11, 16) : '00:00'; // "HH:MM" from "2026-06-14T10:00:00"
+}
+
+function filterSlots(slots) {
+  const tFrom    = $('filter-time-from').value || '00:00';
+  const tTo      = $('filter-time-to').value   || '23:59';
+  const priceMax = parseFloat($('filter-price-max').value);
+  return slots.filter(s => {
+    const t = timeOf(s.start);
+    if (t < tFrom || t > tTo) return false;
+    if (!isNaN(priceMax) && s.price > priceMax) return false;
+    return true;
+  });
+}
+
+function slotSummary(slots) {
+  // group by date, show "дата: HH–HH, HH–HH"
+  const byDate = {};
+  slots.forEach(s => {
+    const d = s.date;
+    if (!byDate[d]) byDate[d] = [];
+    byDate[d].push(`${timeOf(s.start)}–${timeOf(s.end)}`);
+  });
+  const days = Object.entries(byDate);
+  const MAX = 3;
+  const lines = days.slice(0, MAX).map(([d, times]) =>
+    `<div class="slot-day"><strong>${dateLabel(d)}</strong>: ${times.join(', ')}</div>`
+  ).join('');
+  const extra = days.length > MAX ? `<div class="slot-more">+ ещё ${days.length - MAX} дн.</div>` : '';
+  return lines + extra;
+}
+
+function renderResults(data) {
+  const list = $('results-list');
+
+  if (!data.length) {
+    list.innerHTML = '<div class="empty-msg" style="grid-column:1/-1">Нет данных. Сначала запустите парсинг.</div>';
+    $('results-title').textContent = 'Результаты — нет данных';
+    return;
+  }
+
+  const withSlots = data.map(g => ({...g, slots: filterSlots(g.slots)}))
+                        .filter(g => g.slots.length > 0);
+
+  // Parks that were searched but have no free gazebos
+  const parksSearched = filterParks.size > 0 ? [...filterParks] : allParks;
+  const parksWithSlots = new Set(withSlots.map(g => g.park));
+  const emptyParks = parksSearched.filter(p => !parksWithSlots.has(p));
+
+  const noAvail = $('no-avail-block');
+  if (emptyParks.length) {
+    $('no-avail-tags').innerHTML = emptyParks.map(p => `<span class="no-avail-tag">${p}</span>`).join('');
+    noAvail.style.display = 'block';
+  } else {
+    noAvail.style.display = 'none';
+  }
+
+  _gazebos = withSlots;
+  updateMap(withSlots);
+  $('results-title').textContent = `Результаты — ${withSlots.length} беседок со свободными слотами`;
+
+  list.innerHTML = withSlots.map((g, i) => {
+    const photo = g.image_url
+      ? `<img src="${g.image_url}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'no-photo',textContent:'🏕'}))">`
+      : `<div class="no-photo">🏕</div>`;
+    return `
+      <div class="gazebo-card" onclick="openModal(${i})">
+        ${photo}
+        <div class="gazebo-card-body">
+          <div class="gazebo-card-title">${g.title} <span title="${g.has_mangal ? 'Есть мангал' : 'Нет мангала'}">${g.has_mangal ? '🔥' : '🧊'}</span></div>
+          <div class="gazebo-card-park">${g.park}</div>
+          <div class="gazebo-card-slots">${slotSummary(g.slots)}</div>
+          ${g.bilet_id ? `<a class="gazebo-card-link" href="https://bilet.mos.ru/event/${g.bilet_id}" target="_blank" onclick="event.stopPropagation()">Забронировать</a>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function openModal(i) {
+  const g = _gazebos[i];
+  $('modal-title').textContent   = g.title;
+  $('modal-park').textContent    = g.park;
+  $('modal-mangal').textContent  = g.has_mangal ? '🔥 Есть мангал' : '🧊 Нет мангала';
+  $('modal-address').textContent = g.address || '';
+  $('modal-photo').innerHTML = g.image_url
+    ? `<img src="${g.image_url}" alt="" style="cursor:zoom-in"
+         onclick="Object.assign($('lightbox-img'),{src:this.src});$('lightbox').style.display='flex'">`
+    : '';
+  updateModalMap(g.lat, g.lon);
+  $('modal-link-wrap').innerHTML = g.bilet_id
+    ? `<a href="https://bilet.mos.ru/event/${g.bilet_id}" target="_blank" class="gazebo-card-link">Забронировать</a>`
+    : '';
+  $('modal-slots').innerHTML = g.slots.map(s => `
+    <tr>
+      <td>${dateLabel(s.date)}</td>
+      <td>${timeLabel(s.start)} – ${timeLabel(s.end)}</td>
+      <td class="free">${s.free} св.</td>
+      <td>${s.price === 0 ? '<span class="price-zero">бесплатно</span>' : s.price.toLocaleString('ru-RU') + ' ₽'}</td>
+    </tr>`).join('');
+  $('modal-backdrop').classList.add('open');
+}
+
+function closeModal(e) {
+  if (!e || e.target === $('modal-backdrop') || e.currentTarget.classList.contains('modal-close')) {
+    $('modal-backdrop').classList.remove('open');
+  }
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if ($('lightbox').style.display !== 'none') { $('lightbox').style.display = 'none'; return; }
+    $('modal-backdrop').classList.remove('open');
+  }
+});
+
+if (IS_ADMIN) {
+  fetch('/api/status').then(r=>r.json()).then(s => {
+    if (s.running) startPolling();
+  });
+} else {
+  fetch('/api/last-updated').then(r => r.json()).then(d => {
+    const el = $('last-updated-line');
+    if (el && d.ts) {
+      const dt = new Date(d.ts * 1000);
+      el.textContent = 'Данные взяты с сайта в ' + dt.toLocaleString('ru-RU', {
+        day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit'
+      });
+    }
+  });
+  // Public: apply server defaults for first-time visitors (no localStorage yet)
+  const isFirstVisit = !localStorage.getItem('filterParks') && !localStorage.getItem('filterTimeFrom');
+  if (isFirstVisit) {
+    fetch('/api/defaults').then(r => r.json()).then(d => {
+      filterParks = new Set((d.filterParks || []).filter(p => allParks.includes(p) || true));
+      if (d.filterDateFrom) $('filter-date-from').value = d.filterDateFrom;
+      if (d.filterDateTo)   $('filter-date-to').value   = d.filterDateTo;
+      $('filter-time-from').value = d.filterTimeFrom || '00:00';
+      $('filter-time-to').value   = d.filterTimeTo   || '23:59';
+      $('filter-price-max').value = d.filterPriceMax || '';
+      renderFilterParks();
+      loadResults();
+    });
+  } else {
+    loadResults();
+  }
+}
+</script>
+</body>
+</html>
